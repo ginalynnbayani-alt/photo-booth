@@ -580,7 +580,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   async function compose() {
     try { await document.fonts.load('80px "Bagel Fat One"'); await document.fonts.load('700 40px "Baloo 2"'); } catch (e) {}
     try { await stickerImg.decode(); } catch (e) {}
-    if (mode === 'cam') return stampPhoto(shots[0]);
+    if (mode === 'cam') { try { await faceImg.decode(); } catch (e) {} return stampPhoto(shots[0]); }
     const t = THEMES[S.theme] || THEMES.confetti;
     const strip = mode === 'strip';
     const W = strip ? 680 : 1300, pad = strip ? 50 : 70;
@@ -642,21 +642,46 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     x.globalAlpha = 1;
     return c;
   }
+  // Party cam stamp: a banner across the bottom with Ira's face sticker on the left and a camera sticker on the right
+  const faceImg = document.querySelector('.face-sticker');
+  function drawCameraSticker(x, cx, cy, w, rot) {
+    const k = w / 124;
+    const rr = (X, Y, Wd, Ht, R) => { x.beginPath(); if (x.roundRect) x.roundRect(X, Y, Wd, Ht, R); else x.rect(X, Y, Wd, Ht); };
+    const dot = (X, Y, R, f) => { x.beginPath(); x.arc(X, Y, R, 0, Math.PI * 2); x.fillStyle = f; x.fill(); };
+    x.save(); x.translate(cx, cy); x.rotate(rot); x.scale(k, k); x.translate(-62, -56);
+    x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 10 / k; x.shadowOffsetY = 4 / k;
+    x.fillStyle = x.strokeStyle = '#ffffff'; x.lineWidth = 14; x.lineJoin = 'round';
+    rr(12, 32, 100, 62, 16); x.fill(); x.stroke(); rr(40, 18, 36, 20, 7); x.fill(); x.stroke();
+    x.shadowColor = 'transparent';
+    x.fillStyle = '#ff4f9a'; rr(12, 32, 100, 62, 16); x.fill(); rr(40, 18, 36, 20, 7); x.fill();
+    dot(62, 63, 24, '#ffffff'); dot(62, 63, 18, '#2b0a1f'); dot(62, 63, 10, '#ff4f9a'); dot(56, 57, 4, '#ffffff'); dot(97, 45, 6, '#ffd23f');
+    x.restore();
+  }
   function stampPhoto(c) {
     if (S.stamp === false) return c;
     const x = c.getContext('2d'), W = c.width, H = c.height, t = THEMES[S.theme] || THEMES.confetti;
     const disp = '"Bagel Fat One", "Arial Rounded MT Bold", sans-serif', body = '"Baloo 2", sans-serif';
     const head = headline(), sub = S.date || '';
-    const hs = Math.round(W * .034), ss = Math.round(W * .019), px = Math.round(W * .018), m = Math.round(W * .022);
-    x.font = `${hs}px ${disp}`; const hw = x.measureText(head).width;
-    x.font = `700 ${ss}px ${body}`; const sw = sub ? x.measureText(sub).width : 0;
-    const bw = Math.max(hw, sw) + px * 2, bh = px * 1.1 + hs + (sub ? ss * 1.35 : 0), bx = m, by = H - m - bh;
+    const bh = Math.round(W * .15), by = H - bh, m = Math.round(W * .03);
     x.save();
-    x.globalAlpha = .9; x.fillStyle = t.bg;
-    x.beginPath(); if (x.roundRect) x.roundRect(bx, by, bw, bh, Math.round(bh * .2)); else x.rect(bx, by, bw, bh); x.fill();
-    x.globalAlpha = 1; x.fillStyle = t.ink; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
-    x.font = `${hs}px ${disp}`; x.fillText(head, bx + px, by + px * .55 + hs * .88);
-    if (sub) { x.globalAlpha = .85; x.font = `700 ${ss}px ${body}`; x.fillText(sub, bx + px, by + px * .55 + hs * .88 + ss * 1.3); }
+    x.globalAlpha = .94; x.fillStyle = t.bg; x.fillRect(0, by, W, bh); x.globalAlpha = 1;
+    x.save(); x.beginPath(); x.rect(0, by, W, bh); x.clip(); x.translate(0, by); confetti(x, W, bh, t, 4242); x.restore();
+    // face sticker pokes up out of the banner on the left
+    const fh = bh * 1.22, fw = faceImg && faceImg.naturalWidth ? fh * faceImg.naturalWidth / faceImg.naturalHeight : 0;
+    if (fw) {
+      x.save(); x.translate(m + fw / 2, by + bh * .38); x.rotate(-.12);
+      x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 12; x.shadowOffsetY = 5;
+      x.drawImage(faceImg, -fw / 2, -fh / 2, fw, fh); x.restore();
+    }
+    const cw = bh * 1.05;
+    drawCameraSticker(x, W - m - cw / 2, by + bh * .5, cw, .16);
+    // text centered in the space between the stickers
+    const left = m + fw + m * .5, right = W - m - cw - m * .5, cx = (left + right) / 2, maxW = right - left;
+    x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.fillStyle = t.ink;
+    fitText(x, head, disp, Math.round(bh * .34), maxW);
+    const hsz = parseInt(x.font, 10), ssz = Math.round(bh * .19), total = hsz + (sub ? ssz * 1.3 : 0), top = by + (bh - total) / 2;
+    x.fillText(head, cx, top + hsz * .86);
+    if (sub) { x.globalAlpha = .85; fitText(x, sub, body, ssz, maxW, '700'); x.fillText(sub, cx, top + hsz + ssz * 1.12); }
     x.restore();
     return c;
   }
