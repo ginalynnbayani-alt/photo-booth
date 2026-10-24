@@ -139,6 +139,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .viewfinder video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
 .viewfinder video.nomirror { transform: none; }
+#booth.cam .viewfinder { aspect-ratio: 3 / 4; }
+#booth.cam .stage { max-width: min(480px, calc((100vh - 350px) * 3 / 4)); }
 .viewfinder .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--muted); }
 .count {
   position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
@@ -244,6 +246,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   .side .row { flex-direction: column; align-items: stretch; width: 100%; }
   .side .btn.big { padding-inline: 20px; }
   .stage { flex: 0 1 auto; max-width: min(calc(100vw - min(320px, 30vw) - 100px), calc((100vh - 110px) * 4 / 3)); }
+  #booth.cam .stage { max-width: calc((100vh - 110px) * 3 / 4); }
   .result, .result.strip { max-height: calc(100vh - 110px); max-width: calc(100vw - min(320px, 30vw) - 110px); min-height: 0; }
   .hello h1 { font-size: clamp(44px, min(8vw, 13vh), 112px); }
   .choice { padding-block: 16px; }
@@ -495,8 +498,10 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     stream = null; camMode = null;
   }
 
-  function cropTo(src, sw, sh, mirror, W = 1200) {
-    const H = W * 3 / 4, c = document.createElement('canvas');
+  // Booth photos are 4:3 landscape; party cam photos are 3:4 portrait
+  const outSize = () => mode === 'cam' ? [1200, 1600] : [1200, 900];
+  function cropTo(src, sw, sh, mirror, W = 1200, H = 900) {
+    const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const x = c.getContext('2d');
     const s = Math.max(W / sw, H / sh), dw = sw * s, dh = sh * s;
@@ -515,7 +520,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     }
     x.putImageData(d, 0, 0);
   }
-  const captureLive = () => { const v = $('video'); return cropTo(v, v.videoWidth || 1280, v.videoHeight || 960, mirror, mode === 'cam' ? 1600 : 1200); };
+  const captureLive = () => { const v = $('video'); return cropTo(v, v.videoWidth || 1280, v.videoHeight || 960, mirror, ...outSize()); };
   let mirror = true;
   let facingNow = null;
   // Booth modes default to the selfie camera, the party cam to the back camera; each remembers its own choice
@@ -653,6 +658,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   async function openBooth(m) {
     mode = m; shots = []; running = false; clearTimeout(idleTimer);
     show('booth'); setDots(total());
+    $('booth').classList.toggle('cam', mode === 'cam');
     $('dots').hidden = mode === 'cam'; $('timerBtn').hidden = mode !== 'cam'; updateTimerLabel(); updateFlipLabel();
     if (camMode === 'live' && !S.cam && facingNow !== desiredFacing()) restartCamera();
     $('count').textContent = ''; $('pose').textContent = 'Get ready!';
@@ -867,7 +873,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     const img = new Image();
     img.onload = async () => {
       flash();
-      shots.push(cropTo(img, img.naturalWidth, img.naturalHeight, false));
+      shots.push(cropTo(img, img.naturalWidth, img.naturalHeight, false, ...outSize()));
       URL.revokeObjectURL(img.src); setDots(total());
       if (shots.length >= total()) await finish(); else updateFileBtn();
     };
