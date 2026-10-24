@@ -65,7 +65,10 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   max-width: 1100px; margin: 0 auto;
 }
-.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.drive-chip { font: 700 13px var(--body); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; white-space: nowrap; align-self: center; }
+.drive-chip.pending { color: var(--gold); border-color: var(--gold); }
+#driveTest { font-size: 15px; color: var(--muted); }
 .marquee { font-family: var(--display); font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
 .tools { display: flex; gap: 8px; }
 .icon-btn {
@@ -238,6 +241,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   <header class="topbar">
     <div class="marquee" id="marquee">Photo Booth</div>
     <div class="tools">
+      <span class="drive-chip" id="driveChip" role="status" hidden></span>
       <button class="icon-btn warn" id="reconnBtn" type="button" hidden>Reconnect save folder</button>
       <button class="icon-btn" id="fsBtn" type="button">Full screen</button>
       <button class="icon-btn" id="setBtn" type="button" title="Press and hold to open settings"><span class="fill"></span><span style="position:relative">Hold for settings</span></button>
@@ -334,6 +338,11 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
       <div class="field"><label for="sGap">Pause between strip photos</label>
         <select id="sGap"><option value="2">2 seconds</option><option value="3">3 seconds</option><option value="4">4 seconds</option></select>
       </div>
+    </div>
+    <div class="field">
+      <label for="sDrive">Google Drive upload link</label>
+      <input type="text" id="sDrive" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+      <div class="folder-row"><button class="btn small" type="button" id="testDrive">Test connection</button><span id="driveTest">Every photo uploads on its own once this is set.</span></div>
     </div>
     <div class="field" id="folderField">
       <label for="pickFolder">Save photos to</label>
@@ -621,6 +630,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     const url = URL.createObjectURL(lastBlob);
     $('result').src = url;
     $('result').className = 'result' + (mode === 'strip' ? ' strip' : '');
+    queueUpload(c);
     gallery.unshift({ url, blob: lastBlob, mode });
     renderGallery();
     show('review');
@@ -670,6 +680,61 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     } catch (e) { if (e?.name !== 'AbortError') toast('Folders can’t be chosen in this window. Open the booth file in Chrome.'); }
   };
   $('reconnBtn').onclick = async () => { if (await folderOK(true)) toast(`Saving to “${dirHandle.name}”`); refreshFolderUI(); };
+
+  // ---------- Google Drive auto-upload (through the owner's Apps Script web app) ----------
+  // Finished photos wait in a queue on this device and upload one at a time, so nothing is lost when Wi-Fi drops.
+  let uploading = false;
+  const photoName = ext => `${(S.name || 'birthday').replace(/[^\w-]+/g, '-')}-photobooth-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}.${ext}`;
+  const toB64 = blob => new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(String(f.result).split(',')[1]); f.onerror = rej; f.readAsDataURL(blob); });
+  async function queueUpload(canvas) {
+    if (!S.drive) return;
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', .92));
+    const key = 'q:' + Date.now() + ':' + Math.random().toString(36).slice(2, 6);
+    try { await idb('readwrite', s => s.put({ filename: photoName('jpg'), blob }, key)); } catch (e) { return; }
+    processQueue();
+  }
+  async function pendingKeys() {
+    try { return ((await idb('readonly', s => s.getAllKeys())) || []).filter(k => String(k).startsWith('q:')).sort(); } catch (e) { return []; }
+  }
+  async function processQueue() {
+    if (uploading || !S.drive) return updateChip();
+    uploading = true;
+    try {
+      for (const key of await pendingKeys()) {
+        if (!navigator.onLine) break;
+        const item = await idb('readonly', s => s.get(key));
+        if (!item) continue;
+        updateChip(true);
+        const r = await fetch(S.drive, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename: item.filename, image: await toB64(item.blob) }) });
+        const j = await r.json().catch(() => ({ ok: r.ok }));
+        if (!j.ok) throw new Error(j.error || 'upload failed');
+        await idb('readwrite', s => s.delete(key));
+      }
+    } catch (e) { /* stays queued; retried on the next pass */ }
+    uploading = false;
+    updateChip();
+  }
+  async function updateChip(busy) {
+    const chip = $('driveChip');
+    if (!S.drive) { chip.hidden = true; return; }
+    const n = (await pendingKeys()).length;
+    chip.hidden = false;
+    chip.textContent = n === 0 ? 'Drive: all saved' : busy ? `Drive: uploading ${n}` : navigator.onLine ? `Drive: ${n} waiting` : `Drive: ${n} waiting (offline)`;
+    chip.classList.toggle('pending', n > 0);
+  }
+  window.addEventListener('online', processQueue);
+  window.addEventListener('offline', () => updateChip());
+  setInterval(processQueue, 30000);
+  processQueue();
+  $('testDrive').onclick = async () => {
+    const u = $('sDrive').value.trim(), out = $('driveTest');
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)) { out.textContent = 'Paste the web app link from Apps Script. It ends in /exec.'; return; }
+    out.textContent = 'Checking…';
+    try {
+      const j = await (await fetch(u)).json();
+      out.textContent = j.ok ? `Connected. Photos go to “${j.folder}” in Google Drive.` : 'The link answered, but not like the booth script. Check you copied the right one.';
+    } catch (e) { out.textContent = 'Couldn’t reach it. Check the link, and that “Who has access” is set to Anyone.'; }
+  };
 
   async function save() {
     if (!lastBlob) return;
@@ -785,7 +850,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     sw.append(l);
   });
   function openSettings() {
-    $('sName').value = S.name; $('sAge').value = S.age; $('sMsg').value = S.msg; $('sDate').value = S.date;
+    $('sName').value = S.name; $('sAge').value = S.age; $('sMsg').value = S.msg; $('sDate').value = S.date; $('sDrive').value = S.drive || '';
     $('sCount').value = String(S.count); $('sGap').value = String(S.gap); $('sSound').checked = S.sound; $('sSticker').checked = S.sticker !== false;
     $('sSpace').value = S.space; if (camMode === 'live') listCameras();
     const r = $('th-' + S.theme); if (r) r.checked = true;
@@ -797,12 +862,12 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   $('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSettings(); });
   $('setForm').addEventListener('submit', e => {
     e.preventDefault();
-    S.name = $('sName').value.trim(); S.age = $('sAge').value.trim(); S.msg = $('sMsg').value.trim(); S.date = $('sDate').value.trim();
+    S.name = $('sName').value.trim(); S.age = $('sAge').value.trim(); S.msg = $('sMsg').value.trim(); S.date = $('sDate').value.trim(); S.drive = $('sDrive').value.trim();
     S.count = +$('sCount').value; S.gap = +$('sGap').value; S.sound = $('sSound').checked; S.sticker = $('sSticker').checked;
     S.theme = (sw.querySelector('input:checked') || {}).value || 'confetti';
     S.space = $('sSpace').value;
     if ($('sCam').value !== S.cam) { S.cam = $('sCam').value; restartCamera(); }
-    saveSettings(); applyTheme(); $('sheet').hidden = true; toast('Settings saved');
+    saveSettings(); applyTheme(); $('sheet').hidden = true; toast('Settings saved'); processQueue();
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) $('sheet').hidden = true; });
 

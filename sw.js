@@ -1,5 +1,5 @@
 // Offline support: keeps the whole booth on the device so it runs without Wi-Fi.
-const CACHE = 'photobooth-b213ba69f4';
+const CACHE = 'photobooth-e3024e63f2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'fonts/bagelfatone-400-latin-ext.woff2', 'fonts/bagelfatone-400-latin.woff2', 'fonts/baloo2-500-latin-ext.woff2', 'fonts/baloo2-500-latin.woff2'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
