@@ -3,6 +3,8 @@
 A self-service birthday photo booth that runs in the browser and installs on phones and tablets.
 
 - Countdown with single photo, 4-photo strip, or 2×2 grid layouts
+- Party cam for quick candid shots and selfies (back or selfie camera, optional 3s/5s timer)
+- Guest QR code: guests scan it to use the party cam on their own phones, uploading to the same Google Drive album
 - Themed frames with a corner sticker, name, message and date
 - Works offline once installed (Add to Home Screen)
 

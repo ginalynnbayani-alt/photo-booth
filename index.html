@@ -117,6 +117,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .pic.strip i { width: 32px; height: 16px; border-radius: 3px; }
 .pic.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--accent-ink); padding: 5px; border-radius: 6px; height: auto; }
 .pic.grid i { width: 46px; height: 35px; border-radius: 3px; }
+.pic.cam i { position: relative; width: 84px; height: 58px; border-radius: 12px; margin-top: 8px; }
+.pic.cam i::before { content: ""; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: var(--accent-ink); box-shadow: inset 0 0 0 5px var(--ink); }
+.pic.cam i::after { content: ""; position: absolute; top: -9px; left: 27px; width: 30px; height: 10px; border-radius: 5px 5px 0 0; background: var(--accent); }
+.qr-lead { margin: 0; }
+.qr-box { background: #ffffff; color: #2b0a1f; border-radius: 16px; padding: 14px; display: grid; place-items: center; text-align: center; }
+.qr-box img { width: min(72vw, 300px); height: auto; image-rendering: pixelated; display: block; }
+.qr-link { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
 
 .gallery { width: 100%; display: grid; gap: 10px; justify-items: center; }
 .gallery h2 { margin: 0; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
@@ -187,7 +194,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
 .swatches input:focus-visible + i { outline: 3px solid var(--gold); outline-offset: 2px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .check { display: flex; gap: 10px; align-items: center; font-weight: 700; }
-.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--accent-ink); font-weight: 800; padding: 10px 22px; border-radius: 999px; z-index: 60; box-shadow: 0 8px 30px rgba(0,0,0,.5); max-width: calc(100% - 32px); text-align: center; }
+.toast { pointer-events: none; position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--accent-ink); font-weight: 800; padding: 10px 22px; border-radius: 999px; z-index: 60; box-shadow: 0 8px 30px rgba(0,0,0,.5); max-width: calc(100% - 32px); text-align: center; }
 
 .icon-btn { white-space: nowrap; }
 .touch-only { display: none; }
@@ -201,6 +208,9 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
 @media (max-width: 600px) {
   .marquee { font-size: 12px; }
   .hello p { font-size: 17px; }
+  .hello h1 { font-size: clamp(36px, 10.5vw, 52px); }
+  .screen { gap: 16px; }
+  .choice { padding-block: 11px; }
   .choices { gap: 12px; }
   .choice { flex: 1 1 100%; max-width: none; grid-template-columns: 76px 1fr; justify-items: start; align-items: center; column-gap: 16px; row-gap: 2px; padding: 14px 18px; text-align: left; border-radius: 22px; box-shadow: 0 6px 0 var(--accent), 0 12px 28px rgba(0,0,0,.4); }
   .choice .pic { grid-row: span 2; justify-self: center; height: auto; }
@@ -211,6 +221,9 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   .pic.strip i { width: 24px; height: 11px; }
   .pic.grid { gap: 4px; padding: 4px; }
   .pic.grid i { width: 30px; height: 23px; }
+  .pic.cam i { width: 58px; height: 40px; border-radius: 9px; margin-top: 6px; }
+  .pic.cam i::before { width: 22px; height: 22px; margin: -11px 0 0 -11px; box-shadow: inset 0 0 0 4px var(--ink); }
+  .pic.cam i::after { top: -7px; left: 18px; width: 22px; height: 8px; }
   #booth { gap: 14px; padding-block: 6px; }
   #booth .btn.big { font-size: 22px; padding: 13px 30px; }
   #booth .btn.ghost { font-size: 17px; padding: 10px 22px; }
@@ -273,6 +286,10 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
         <div class="pic grid"><i></i><i></i><i></i><i></i></div>
         <b>Photo grid</b><span>Four poses, two by two</span>
       </button>
+      <button class="choice" id="goCam" type="button">
+        <div class="pic cam"><i></i></div>
+        <b>Party cam</b><span>Candid shots and selfies</span>
+      </button>
     </div>
     <div class="gallery" id="gallery" hidden>
       <h2>Today's photos</h2>
@@ -296,6 +313,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
       <button class="chip" type="button" data-f="color" aria-pressed="true">Color</button>
       <button class="chip" type="button" data-f="bw" aria-pressed="false">Black &amp; white</button>
       <button class="chip" type="button" data-f="warm" aria-pressed="false">Sunny</button>
+      <button class="chip" type="button" id="timerBtn" aria-pressed="false" hidden>Timer: off</button>
     </div>
     <div class="row">
       <button class="btn big" id="snapBtn" type="button">Start countdown</button>
@@ -360,7 +378,12 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     <div class="field"><label for="sSpace">Tapping the screen or space bar takes</label>
       <select id="sSpace"><option value="strip">A photo strip (4 photos)</option><option value="grid">A photo grid (4 photos, 2 by 2)</option><option value="single">One photo</option></select>
     </div>
+    <div class="field">
+      <label for="guestBtn">Guest phones</label>
+      <div class="folder-row"><button class="btn small" type="button" id="guestBtn">Show guest QR code</button><span id="guestNote">Guests scan it to take party photos on their own phones.</span></div>
+    </div>
     <label class="check"><input type="checkbox" id="sSticker"> Birthday picture in the frame corner</label>
+    <label class="check"><input type="checkbox" id="sStamp"> Birthday stamp on party cam photos</label>
     <label class="check"><input type="checkbox" id="sSound"> Countdown beeps</label>
     <div class="row" style="justify-content:flex-start">
       <button class="btn" type="submit">Save settings</button>
@@ -369,6 +392,16 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   </form>
 </div>
 
+<div class="sheet" id="qrSheet" hidden>
+  <div class="panel">
+    <div class="panel-head"><h2>Party cam for guests</h2><button class="x-btn" type="button" id="xQr" aria-label="Close">&times;</button></div>
+    <p class="qr-lead" id="qrLead">Scan with your phone camera to take party photos.</p>
+    <div class="qr-box" id="qrBox"></div>
+    <p class="qr-link" id="qrLink"></p>
+  </div>
+</div>
+
+<script src="vendor/qrcode.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -378,12 +411,16 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     mint:     { label: 'Mermaid',  bg: '#2fd3b5', paper: '#effffb', ink: '#0d3a40', dots: ['#ffffff', '#ff8fc2', '#7b5cff', '#ffe066'] },
     galaxy:   { label: 'Galaxy',   bg: '#3b1f7a', paper: '#f4efff', ink: '#ffffff', dots: ['#ffd23f', '#ff4f9a', '#7fe7ff', '#ffffff'] },
   };
-  const DEFAULTS = { name: 'Azalea Ira', age: '2', msg: 'Happy Birthday!', theme: 'confetti', count: 3, gap: 3, sound: true, cam: '', space: 'strip', sticker: true, facing: 'user', date: 'October 24, 2026' };
+  const DEFAULTS = { name: 'Azalea Ira', age: '2', msg: 'Happy Birthday!', theme: 'confetti', count: 3, gap: 3, sound: true, cam: '', space: 'strip', sticker: true, facing: 'user', camFacing: 'environment', camTimer: 0, stamp: true, date: 'October 24, 2026' };
   const POSES = ['Big smile!', 'Silly face!', 'Strike a pose!', 'Everybody squish in!', 'Surprised face!', 'Make a heart!', 'Rock star!'];
 
   let S = { ...DEFAULTS };
   try { Object.assign(S, JSON.parse(localStorage.getItem('booth-settings') || '{}')); } catch (e) {}
   const saveSettings = () => { try { localStorage.setItem('booth-settings', JSON.stringify(S)); } catch (e) {} };
+  // Guest link (?guest=1&d=<Drive upload link>): opens straight into the party cam, uploading to the host's album
+  const qs = new URLSearchParams(location.search);
+  const isGuest = qs.get('guest') === '1';
+  if (isGuest) { if (qs.get('d')) S.drive = qs.get('d'); saveSettings(); }
 
   let stream = null, camMode = null; // 'live' | 'file'
   let mode = 'single', shots = [], running = false, filter = 'color';
@@ -428,12 +465,13 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('no camera api');
       const video = { width: { ideal: 1920 }, height: { ideal: 1440 } };
-      if (S.cam) video.deviceId = { ideal: S.cam }; else video.facingMode = { ideal: S.facing || 'user' };
+      if (S.cam) video.deviceId = { ideal: S.cam }; else video.facingMode = { ideal: desiredFacing() };
       stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
       $('video').srcObject = stream;
       // Selfie camera is mirrored like a mirror; the back camera shows the scene as it is
       const fm = stream.getVideoTracks()[0]?.getSettings?.().facingMode;
-      mirror = fm ? fm === 'user' : (S.facing || 'user') === 'user';
+      mirror = fm ? fm === 'user' : desiredFacing() === 'user';
+      facingNow = desiredFacing();
       $('video').classList.toggle('nomirror', !mirror);
       await $('video').play().catch(() => {});
       camMode = 'live';
@@ -457,8 +495,8 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     stream = null; camMode = null;
   }
 
-  function cropTo(src, sw, sh, mirror) {
-    const W = 1200, H = 900, c = document.createElement('canvas');
+  function cropTo(src, sw, sh, mirror, W = 1200) {
+    const H = W * 3 / 4, c = document.createElement('canvas');
     c.width = W; c.height = H;
     const x = c.getContext('2d');
     const s = Math.max(W / sw, H / sh), dw = sw * s, dh = sh * s;
@@ -477,9 +515,13 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     }
     x.putImageData(d, 0, 0);
   }
-  const captureLive = () => { const v = $('video'); return cropTo(v, v.videoWidth || 1280, v.videoHeight || 960, mirror); };
+  const captureLive = () => { const v = $('video'); return cropTo(v, v.videoWidth || 1280, v.videoHeight || 960, mirror, mode === 'cam' ? 1600 : 1200); };
   let mirror = true;
-  function updateFlipLabel() { $('flipBtn').textContent = S.facing === 'environment' ? 'Use front camera' : 'Use back camera'; }
+  let facingNow = null;
+  // Booth modes default to the selfie camera, the party cam to the back camera; each remembers its own choice
+  function desiredFacing() { return mode === 'cam' ? (S.camFacing || 'environment') : (S.facing || 'user'); }
+  function updateFlipLabel() { $('flipBtn').textContent = desiredFacing() === 'environment' ? 'Use selfie camera' : 'Use back camera'; }
+  function updateTimerLabel() { $('timerBtn').textContent = S.camTimer ? `Timer: ${S.camTimer}s` : 'Timer: off'; $('timerBtn').setAttribute('aria-pressed', String(!!S.camTimer)); }
 
   // ---------- Composition ----------
   function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
@@ -511,6 +553,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   async function compose() {
     try { await document.fonts.load('80px "Bagel Fat One"'); await document.fonts.load('700 40px "Baloo 2"'); } catch (e) {}
     try { await stickerImg.decode(); } catch (e) {}
+    if (mode === 'cam') return stampPhoto(shots[0]);
     const t = THEMES[S.theme] || THEMES.confetti;
     const strip = mode === 'strip';
     const W = strip ? 680 : 1300, pad = strip ? 50 : 70;
@@ -572,6 +615,24 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     x.globalAlpha = 1;
     return c;
   }
+  function stampPhoto(c) {
+    if (S.stamp === false) return c;
+    const x = c.getContext('2d'), W = c.width, H = c.height, t = THEMES[S.theme] || THEMES.confetti;
+    const disp = '"Bagel Fat One", "Arial Rounded MT Bold", sans-serif', body = '"Baloo 2", sans-serif';
+    const head = headline(), sub = S.date || '';
+    const hs = Math.round(W * .034), ss = Math.round(W * .019), px = Math.round(W * .018), m = Math.round(W * .022);
+    x.font = `${hs}px ${disp}`; const hw = x.measureText(head).width;
+    x.font = `700 ${ss}px ${body}`; const sw = sub ? x.measureText(sub).width : 0;
+    const bw = Math.max(hw, sw) + px * 2, bh = px * 1.1 + hs + (sub ? ss * 1.35 : 0), bx = m, by = H - m - bh;
+    x.save();
+    x.globalAlpha = .9; x.fillStyle = t.bg;
+    x.beginPath(); if (x.roundRect) x.roundRect(bx, by, bw, bh, Math.round(bh * .2)); else x.rect(bx, by, bw, bh); x.fill();
+    x.globalAlpha = 1; x.fillStyle = t.ink; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    x.font = `${hs}px ${disp}`; x.fillText(head, bx + px, by + px * .55 + hs * .88);
+    if (sub) { x.globalAlpha = .85; x.font = `700 ${ss}px ${body}`; x.fillText(sub, bx + px, by + px * .55 + hs * .88 + ss * 1.3); }
+    x.restore();
+    return c;
+  }
   // Die-cut look: white outline around the cutout
   function stickerCanvas(img, w, h) {
     const o = Math.round(w * .035), c = document.createElement('canvas');
@@ -587,19 +648,21 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
 
   // ---------- Flow ----------
   function setDots(n) { $('dots').innerHTML = ''; for (let i = 0; i < n; i++) { const d = document.createElement('i'); if (i < shots.length) d.className = 'on'; $('dots').append(d); } }
-  const total = () => mode === 'single' ? 1 : 4;
+  const total = () => mode === 'single' || mode === 'cam' ? 1 : 4;
 
   async function openBooth(m) {
     mode = m; shots = []; running = false; clearTimeout(idleTimer);
     show('booth'); setDots(total());
+    $('dots').hidden = mode === 'cam'; $('timerBtn').hidden = mode !== 'cam'; updateTimerLabel(); updateFlipLabel();
+    if (camMode === 'live' && !S.cam && facingNow !== desiredFacing()) restartCamera();
     $('count').textContent = ''; $('pose').textContent = 'Get ready!';
     $('snapBtn').disabled = false; $('flipBtn').disabled = false;
     const cm = await initCamera();
     $('video').hidden = cm !== 'live';
     $('vfMsg').hidden = cm === 'live';
     if (cm === 'live') {
-      $('snapBtn').textContent = total() > 1 ? 'Start! (4 photos)' : 'Start countdown';
-      $('pose').textContent = 'Look at the camera!';
+      $('snapBtn').textContent = mode === 'cam' ? 'Take photo' : total() > 1 ? 'Start! (4 photos)' : 'Start countdown';
+      $('pose').textContent = mode === 'cam' ? 'Snap the party!' : 'Look at the camera!';
     } else {
       $('vfMsg').textContent = 'The live camera isn’t available here. Tap the button below and your device’s camera will open for each photo.';
       updateFileBtn();
@@ -627,9 +690,9 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     running = true; $('snapBtn').disabled = true; $('flipBtn').disabled = true;
     const poses = [...POSES].sort(() => Math.random() - .5);
     for (let i = 0; i < total(); i++) {
-      $('pose').textContent = total() > 1 ? `${i + 1} of ${total()}: ${poses[i]}` : poses[i];
+      $('pose').textContent = mode === 'cam' ? (S.camTimer ? 'Get ready!' : 'Snap!') : total() > 1 ? `${i + 1} of ${total()}: ${poses[i]}` : poses[i];
       if (i > 0) await sleep(S.gap * 1000 - 1000);
-      if (!(await countdown(i === 0 ? S.count : Math.min(S.count, 3)))) return;
+      if (!(await countdown(mode === 'cam' ? S.camTimer : i === 0 ? S.count : Math.min(S.count, 3)))) return;
       flash(); shots.push(captureLive()); setDots(total());
     }
     running = false;
@@ -643,6 +706,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     const url = URL.createObjectURL(lastBlob);
     $('result').src = url;
     $('result').className = 'result' + (mode === 'strip' ? ' strip' : '');
+    $('againBtn').textContent = mode === 'cam' ? 'Take another' : 'Take it again';
     queueUpload(c);
     gallery.unshift({ url, blob: lastBlob, mode });
     renderGallery();
@@ -697,7 +761,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   // ---------- Google Drive auto-upload (through the owner's Apps Script web app) ----------
   // Finished photos wait in a queue on this device and upload one at a time, so nothing is lost when Wi-Fi drops.
   let uploading = false;
-  const photoName = ext => `${(S.name || 'birthday').replace(/[^\w-]+/g, '-')}-photobooth-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}.${ext}`;
+  const photoName = ext => `${(S.name || 'birthday').replace(/[^\w-]+/g, '-')}-${mode === 'cam' ? 'partycam' : 'photobooth'}-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}-${Math.random().toString(36).slice(2, 5)}.${ext}`;
   const toB64 = blob => new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(String(f.result).split(',')[1]); f.onerror = rej; f.readAsDataURL(blob); });
   async function queueUpload(canvas) {
     if (!S.drive) return;
@@ -752,9 +816,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   async function save() {
     if (!lastBlob) return;
     armIdle();
-    const who = (S.name || 'birthday').replace(/[^\w-]+/g, '-');
-    const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, '');
-    const filename = `${who}-photobooth-${stamp}.png`;
+    const filename = photoName('png');
     if (dirHandle && await folderOK(true)) {
       try {
         const fh = await dirHandle.getFileHandle(filename, { create: true });
@@ -786,15 +848,19 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   $('goGrid').onclick = () => openBooth('grid');
   $('snapBtn').onclick = () => {
     if (camMode === 'live') runLive();
-    else { $('fileCam').setAttribute('capture', S.facing === 'environment' ? 'environment' : 'user'); $('fileCam').value = ''; $('fileCam').click(); }
+    else { $('fileCam').setAttribute('capture', desiredFacing()); $('fileCam').value = ''; $('fileCam').click(); }
   };
+  $('goCam').onclick = () => openBooth('cam');
+  $('timerBtn').onclick = () => { S.camTimer = S.camTimer === 0 ? 3 : S.camTimer === 3 ? 5 : 0; saveSettings(); updateTimerLabel(); };
   $('flipBtn').onclick = async () => {
     if (running) return;
-    S.facing = S.facing === 'environment' ? 'user' : 'environment'; S.cam = ''; saveSettings();
+    if (mode === 'cam') S.camFacing = S.camFacing === 'user' ? 'environment' : 'user';
+    else S.facing = S.facing === 'environment' ? 'user' : 'environment';
+    S.cam = ''; saveSettings();
     $('flipBtn').disabled = true;
     restartCamera(); await initCamera();
     $('flipBtn').disabled = false; updateFlipLabel();
-    toast(S.facing === 'environment' ? 'Back camera on' : 'Front camera on');
+    toast(desiredFacing() === 'environment' ? 'Back camera on' : 'Selfie camera on');
   };
   $('fileCam').onchange = e => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -872,7 +938,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   });
   function openSettings() {
     $('sName').value = S.name; $('sAge').value = S.age; $('sMsg').value = S.msg; $('sDate').value = S.date; $('sDrive').value = S.drive || '';
-    $('sCount').value = String(S.count); $('sGap').value = String(S.gap); $('sSound').checked = S.sound; $('sSticker').checked = S.sticker !== false;
+    $('sCount').value = String(S.count); $('sGap').value = String(S.gap); $('sSound').checked = S.sound; $('sSticker').checked = S.sticker !== false; $('sStamp').checked = S.stamp !== false;
     $('sSpace').value = S.space; if (camMode === 'live') listCameras();
     const r = $('th-' + S.theme); if (r) r.checked = true;
     $('sheet').hidden = false; $('sName').focus();
@@ -884,13 +950,34 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   $('setForm').addEventListener('submit', e => {
     e.preventDefault();
     S.name = $('sName').value.trim(); S.age = $('sAge').value.trim(); S.msg = $('sMsg').value.trim(); S.date = $('sDate').value.trim(); S.drive = $('sDrive').value.trim();
-    S.count = +$('sCount').value; S.gap = +$('sGap').value; S.sound = $('sSound').checked; S.sticker = $('sSticker').checked;
+    S.count = +$('sCount').value; S.gap = +$('sGap').value; S.sound = $('sSound').checked; S.sticker = $('sSticker').checked; S.stamp = $('sStamp').checked;
     S.theme = (sw.querySelector('input:checked') || {}).value || 'confetti';
     S.space = $('sSpace').value;
     if ($('sCam').value !== S.cam) { S.cam = $('sCam').value; restartCamera(); }
     saveSettings(); applyTheme(); $('sheet').hidden = true; toast('Settings saved'); processQueue();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) $('sheet').hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('qrSheet').hidden) $('qrSheet').hidden = true; else if (!$('sheet').hidden) $('sheet').hidden = true; } });
+
+  // Guest QR code: points at the published app, carrying the Drive upload link so guests' photos land in the same album
+  const APP_URL = /^https?:$/.test(location.protocol) && /(github\.io|localhost|127\.0\.0\.1)$/.test(location.hostname)
+    ? location.origin + location.pathname : 'https://ginalynnbayani-alt.github.io/photo-booth/';
+  $('guestBtn').onclick = () => {
+    const drive = $('sDrive').value.trim() || S.drive || '';
+    const url = APP_URL + '?guest=1' + (drive ? '&d=' + encodeURIComponent(drive) : '');
+    $('qrLead').textContent = drive
+      ? 'Scan with your phone camera to take party photos. They go straight to the birthday album in Google Drive.'
+      : 'Scan with your phone camera to take party photos. Add the Google Drive upload link in settings first if you want guests\u2019 photos in your album; without it they stay on each guest\u2019s phone.';
+    $('qrLink').textContent = url;
+    $('qrBox').innerHTML = '';
+    if (window.qrcode) {
+      const q = qrcode(0, 'M'); q.addData(url); q.make();
+      const im = new Image(); im.src = q.createDataURL(8, 2); im.alt = 'QR code that opens the party cam'; $('qrBox').append(im);
+    } else $('qrBox').textContent = 'The QR code couldn\u2019t load here. Guests can open the link below instead.';
+    $('qrSheet').hidden = false;
+  };
+  $('xQr').onclick = () => { $('qrSheet').hidden = true; };
+  $('qrSheet').addEventListener('click', e => { if (e.target === $('qrSheet')) $('qrSheet').hidden = true; });
+  if (isGuest) { $('setBtn').hidden = true; openBooth('cam'); }
 
   applyTheme();
 })();
