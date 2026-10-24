@@ -180,6 +180,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--accent-ink); }
 .btn.big { font-size: 26px; padding: 18px 44px; font-family: var(--display); font-weight: 400; }
+.btn.fb { background: #1877f2; color: #ffffff; box-shadow: 0 5px 0 #0b4fae; }
+.btn.fb:active { box-shadow: 0 2px 0 #0b4fae; }
 .btn.ghost { background: transparent; color: var(--ink); border: 2px solid var(--line); box-shadow: none; }
 
 /* Review */
@@ -243,6 +245,12 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   #booth .btn.big { font-size: 22px; padding: 13px 30px; }
   #booth .btn.ghost { font-size: 17px; padding: 10px 22px; }
   #booth .chip { font-size: 15px; padding: 5px 14px; }
+  #review { gap: 12px; }
+  #review .row { gap: 8px; }
+  #review .btn { font-size: 16px; padding: 10px 16px; }
+  #review .btn.big { font-size: 19px; padding: 11px 22px; }
+  #review .result, #review .result.strip { max-height: calc(100vh - 340px); }
+  #review .hint { font-size: 13px; }
 }
 
 /* Portrait/phone: side column dissolves into the normal stacked flow, prompt above the camera */
@@ -346,6 +354,7 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
     <div class="side">
     <div class="row">
       <button class="btn big" id="saveBtn" type="button">Save photo</button>
+      <button class="btn fb" id="shareBtn" type="button" hidden>Share to Facebook</button>
       <button class="btn ghost" id="againBtn" type="button">Take it again</button>
       <button class="btn ghost" id="doneBtn" type="button">All done</button>
     </div>
@@ -930,6 +939,19 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
   };
   $('cancelBtn').onclick = () => { running = false; $('count').textContent = ''; show('start'); };
   $('saveBtn').onclick = save;
+  // Facebook can't receive photos from a web page directly, so hand the photo to the phone's share menu, where Facebook is listed
+  try {
+    $('shareBtn').hidden = !(matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [new File(['x'], 'x.png', { type: 'image/png' })] }));
+  } catch (e) {}
+  $('shareBtn').onclick = async () => {
+    if (!lastBlob) return;
+    armIdle();
+    try {
+      await navigator.share({ files: [new File([lastBlob], photoName('png'), { type: 'image/png' })] });
+    } catch (e) {
+      if (e?.name !== 'AbortError') toast('Sharing didn\u2019t work here. Tap Save photo, then post it from your Photos app.', 3500);
+    }
+  };
   $('againBtn').onclick = () => openBooth(mode);
   $('doneBtn').onclick = () => { clearTimeout(idleTimer); show('start'); };
   // Space bar: start from the start screen, fire the countdown in the booth, go again from the review screen
