@@ -450,6 +450,9 @@ fieldset.field { border: 0; margin: 0; padding: 0; }
 
   let S = { ...DEFAULTS };
   try { Object.assign(S, JSON.parse(localStorage.getItem('booth-settings') || '{}')); } catch (e) {}
+  // Built-in Google Drive album, so every copy of the app (including guests' installed ones) uploads there
+  const DEFAULT_DRIVE = 'https://script.google.com/macros/s/AKfycbxsjd75hqn4SPP0HXe3KOu-33OdCjpD_khYq68gDhE5XF94991E-CK3dMCvARvv7H20/exec';
+  if (!S.drive) S.drive = DEFAULT_DRIVE;
   const saveSettings = () => { try { localStorage.setItem('booth-settings', JSON.stringify(S)); } catch (e) {} };
   // Guest link (?guest=1&d=<Drive upload link>): opens straight into the party cam, uploading to the host's album
   const qs = new URLSearchParams(location.search);
